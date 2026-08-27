@@ -3,307 +3,466 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Super Mario Bros - Edición Rosa</title>
+    <title>Super Mario Bros. - Next-Gen Edition 2026</title>
+    <!-- Three.js Motor 3D HD -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body {
-            background-color: #000;
-            color: #fff;
-            font-family: Arial, sans-serif;
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #020205;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             display: flex;
             flex-direction: column;
-            align-items: center;
             justify-content: center;
-            height: 100vh;
-            margin: 0;
+            align-items: center;
         }
 
-        #game-container {
-            border: 4px solid #fff;
-            box-shadow: 0 0 20px rgba(255, 105, 180, 0.5);
-            background-color: #5c94fc;
+        #game-frame {
             position: relative;
+            width: 800px;
+            height: 600px;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 0 60px rgba(255, 105, 180, 0.4), 0 0 100px rgba(92, 148, 252, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            background: #000;
         }
 
-        canvas {
+        #webgl-canvas {
+            width: 100%;
+            height: 100%;
             display: block;
         }
 
-        .controls-ui {
-            background-color: #000;
-            padding: 10px 20px;
-            margin-top: 10px;
-            border-radius: 8px;
-            font-size: 14px;
+        /* HUD Next-Gen */
+        .hud-overlay {
+            position: absolute;
+            top: 20px;
+            left: 25px;
+            right: 25px;
+            display: flex;
+            justify-content: space-between;
+            color: #ffffff;
+            font-family: 'Trebuchet MS', 'Arial Black', sans-serif;
+            font-weight: 900;
+            font-size: 16px;
             letter-spacing: 1px;
-            text-align: center;
-            border: 1px solid #333;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.8), 0 0 5px rgba(255, 255, 255, 0.5);
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        .hud-overlay .value {
+            color: #ffea00;
+            font-size: 20px;
+        }
+
+        .controls-ui {
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(12px);
+            padding: 10px 24px;
+            margin-top: 15px;
+            border-radius: 8px;
+            font-size: 12px;
+            letter-spacing: 1px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            display: flex;
+            gap: 20px;
+            color: #ccc;
         }
 
         .key {
-            background: #222;
-            border: 1px solid #555;
-            padding: 2px 6px;
+            background: linear-gradient(180deg, #444 0%, #151515 100%);
+            border: 1px solid #777;
+            padding: 2px 8px;
             border-radius: 4px;
             color: #fff;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        }
+
+        #game-over-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 30;
+            display: none;
+        }
+
+        #game-over-screen h1 {
+            font-size: 48px;
+            color: #ff3366;
+            text-shadow: 0 0 20px rgba(255, 51, 102, 0.8);
+            margin-bottom: 10px;
         }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <canvas id="marioCanvas" width="600" height="500"></canvas>
+    <div id="game-frame">
+        <div class="hud-overlay">
+            <div>MARIO<br><span id="score" class="value">000000</span></div>
+            <div>MONEDAS<br>🪙 x<span id="coins" class="value">00</span></div>
+            <div>PODER<br><span id="power-status" class="value" style="color: #ff69b4;">NORMAL</span></div>
+            <div>TIEMPO<br><span id="timer" class="value">300</span></div>
+        </div>
+
+        <div id="game-over-screen">
+            <h1 id="game-status-title">¡JUEGO TERMINADO!</h1>
+            <p style="margin-bottom: 20px;">Presiona ESPACIO para reiniciar</p>
+        </div>
+
+        <canvas id="webgl-canvas"></canvas>
     </div>
 
     <div class="controls-ui">
-        MOVER: <span class="key">←</span> <span class="key">→</span> | 
-        SALTAR: <span class="key">Z</span> / <span class="key">ESPACIO</span> | 
-        CORRER / PODER: <span class="key">X</span>
+        <div>MOVER: <span class="key">←</span> <span class="key">→</span></div>
+        <div>SALTAR: <span class="key">Z</span> / <span class="key">ESPACIO</span></div>
+        <div>DISPARAR / PODER ROSA: <span class="key">X</span></div>
     </div>
 
     <script>
-        const canvas = document.getElementById("marioCanvas");
-        const ctx = canvas.getContext("2d");
+        // --- MOTOR DE AUDIO SINTÉTICO (Efectos de Sonido) ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
 
-        // Configuración del juego
-        const GRAVITY = 0.5;
-        
-        // Estado de teclas
-        const keys = {
-            left: false,
-            right: false,
-            jump: false,
-            action: false
-        };
-
-        // Objeto Jugador (Mario)
-        const mario = {
-            x: 50,
-            y: 300,
-            width: 32,
-            height: 48,
-            vx: 0,
-            vy: 0,
-            speed: 4,
-            jumpForce: 11,
-            grounded: false,
-            hasPinkPower: false,
-            facing: 'right'
-        };
-
-        // Elementos del nivel (Plataformas y Bloques)
-        const platforms = [
-            // Suelo de ladrillo
-            { x: 0, y: 440, width: 600, height: 60, type: 'ground' },
-            // Plataforma izquierda con bloque ?
-            { x: 50, y: 300, width: 120, height: 30, type: 'brick' },
-            { x: 90, y: 180, width: 30, height: 30, type: 'question' },
-            // Tubería verde central
-            { x: 270, y: 370, width: 50, height: 70, type: 'pipe' },
-            // Plataformas superiores (Rosa y Ladrillo)
-            { x: 380, y: 260, width: 150, height: 30, type: 'brick' },
-            { x: 420, y: 260, width: 30, height: 30, type: 'question' },
-            { x: 410, y: 350, width: 120, height: 20, type: 'pink_brick' }
-        ];
-
-        // Items especiales (Poderes Rosas)
-        const items = [
-            { x: 425, y: 130, size: 24, type: 'pink_flower', collected: false },
-            { x: 100, y: 90, size: 24, type: 'pink_star', collected: false }
-        ];
-
-        // Control de teclado
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowLeft') keys.left = true;
-            if (e.key === 'ArrowRight') keys.right = true;
-            if (e.key === 'z' || e.key === 'Z' || e.key === ' ') keys.jump = true;
-            if (e.key === 'x' || e.key === 'X') keys.action = true;
-        });
-
-        window.addEventListener('keyup', (e) => {
-            if (e.key === 'ArrowLeft') keys.left = false;
-            if (e.key === 'ArrowRight') keys.right = false;
-            if (e.key === 'z' || e.key === 'Z' || e.key === ' ') keys.jump = false;
-            if (e.key === 'x' || e.key === 'X') keys.action = false;
-        });
-
-        // Bucle de actualización lógica
-        function update() {
-            // Movimiento horizontal
-            if (keys.left) {
-                mario.vx = -mario.speed;
-                mario.facing = 'left';
-            } else if (keys.right) {
-                mario.vx = mario.speed;
-                mario.facing = 'right';
-            } else {
-                mario.vx = 0;
-            }
-
-            // Salto
-            if (keys.jump && mario.grounded) {
-                mario.vy = -mario.jumpForce;
-                mario.grounded = false;
-            }
-
-            // Aplicar gravedad
-            mario.vy += GRAVITY;
-
-            // Actualizar posiciones
-            mario.x += mario.vx;
-            mario.y += mario.vy;
-
-            // Colisiones con paredes
-            if (mario.x < 0) mario.x = 0;
-            if (mario.x + mario.width > canvas.width) mario.x = canvas.width - mario.width;
-
-            // Colisiones con plataformas
-            mario.grounded = false;
-            for (let plat of platforms) {
-                if (
-                    mario.x < plat.x + plat.width &&
-                    mario.x + mario.width > plat.x &&
-                    mario.y + mario.height >= plat.y &&
-                    mario.y + mario.height <= plat.y + plat.height &&
-                    mario.vy >= 0
-                ) {
-                    mario.grounded = true;
-                    mario.vy = 0;
-                    mario.y = plat.y - mario.height;
-                }
-            }
-
-            // Recoger Poderes Rosas
-            for (let item of items) {
-                if (!item.collected &&
-                    mario.x < item.x + item.size &&
-                    mario.x + mario.width > item.x &&
-                    mario.y < item.y + item.size &&
-                    mario.y + mario.height > item.y) {
-                    
-                    item.collected = true;
-                    mario.hasPinkPower = true;
-                }
+            if (type === 'jump') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+            } else if (type === 'coin') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(987.77, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(1318.51, audioCtx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+            } else if (type === 'powerup') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.3);
             }
         }
 
-        // Renderizado gráfico
-        function draw() {
-            // Fondo de cielo
-            ctx.fillStyle = "#5c94fc";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // --- MOTOR 3D SCENE SETUP ---
+        const canvas = document.getElementById('webgl-canvas');
+        const container = document.getElementById('game-frame');
 
-            // Dibuja nubes decorativas
-            drawCloud(100, 80);
-            drawCloud(400, 60);
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x3a88ff);
+        scene.fog = new THREE.FogExp2(0x3a88ff, 0.012);
 
-            // Dibujar plataformas y bloques
-            for (let plat of platforms) {
-                if (plat.type === 'ground' || plat.type === 'brick') {
-                    ctx.fillStyle = "#d84800"; // Ladrillo rojo/marrón clásico
-                    ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
-                    ctx.strokeStyle = "#000";
-                    ctx.strokeRect(plat.x, plat.y, plat.width, plat.height);
-                } else if (plat.type === 'question') {
-                    ctx.fillStyle = "#fc9838"; // Bloque ? amarillo/naranja
-                    ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
-                    ctx.fillStyle = "#000";
-                    ctx.font = "bold 20px Arial";
-                    ctx.fillText("?", plat.x + 8, plat.y + 22);
-                } else if (plat.type === 'pipe') {
-                    ctx.fillStyle = "#00a800"; // Tubería verde
-                    ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
-                    ctx.fillStyle = "#008800";
-                    ctx.fillRect(plat.x - 4, plat.y, plat.width + 8, 15);
-                } else if (plat.type === 'pink_brick') {
-                    ctx.fillStyle = "#ff69b4"; // Ladrillo rosa
-                    ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
-                }
-            }
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.set(0, 2, 16);
 
-            // Dibujar Items (Flor Rosa / Estrella Rosa)
-            for (let item of items) {
-                if (!item.collected) {
-                    if (item.type === 'pink_flower') {
-                        ctx.fillStyle = "#ff1493";
-                        ctx.beginPath();
-                        ctx.arc(item.x + 12, item.y + 12, 12, 0, Math.PI * 2);
-                        ctx.fill();
-                        ctx.fillStyle = "#fff";
-                        ctx.beginPath();
-                        ctx.arc(item.x + 12, item.y + 12, 5, 0, Math.PI * 2);
-                        ctx.fill();
-                    } else if (item.type === 'pink_star') {
-                        ctx.fillStyle = "#ffb6c1";
-                        ctx.fillRect(item.x, item.y, item.size, item.size);
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        // --- ILUMINACIÓN AVANZADA ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        sunLight.position.set(10, 20, 15);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 2048;
+        sunLight.shadow.mapSize.height = 2048;
+        scene.add(sunLight);
+
+        const pinkRimLight = new THREE.PointLight(0xff69b4, 2, 20);
+        pinkRimLight.position.set(0, 5, 5);
+        scene.add(pinkRimLight);
+
+        // --- MATERIALES HD ---
+        const matGround = new THREE.MeshStandardMaterial({ color: 0x8b4513, roughness: 0.9 });
+        const matGrass = new THREE.MeshStandardMaterial({ color: 0x4cc02d, roughness: 0.6 });
+        const matPinkPlatform = new THREE.MeshStandardMaterial({ color: 0xff1493, roughness: 0.2, metalness: 0.3, emissive: 0xff69b4, emissiveIntensity: 0.2 });
+        const matQuestion = new THREE.MeshStandardMaterial({ color: 0xffa500, metalness: 0.5, roughness: 0.2 });
+        const matPipe = new THREE.MeshStandardMaterial({ color: 0x00cc44, metalness: 0.3, roughness: 0.2 });
+        const matCoin = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9, roughness: 0.1 });
+        const matMarioRed = new THREE.MeshStandardMaterial({ color: 0xee1c25, roughness: 0.3 });
+        const matMarioBlue = new THREE.MeshStandardMaterial({ color: 0x002fbe, roughness: 0.4 });
+        const matSkin = new THREE.MeshStandardMaterial({ color: 0xffd1b3, roughness: 0.6 });
+
+        // --- CONSTRUCCIÓN DEL MUNDO ---
+        const platforms = [];
+        const coinsList = [];
+        const enemiesList = [];
+        const particlesList = [];
+
+        // Suelo Principal
+        for (let x = -20; x <= 40; x += 1.2) {
+            const blockGeo = new THREE.BoxGeometry(1.2, 2, 1.2);
+            const block = new THREE.Mesh(blockGeo, matGround);
+            block.position.set(x, -5, 0);
+            block.castShadow = true; block.receiveShadow = true;
+            scene.add(block);
+
+            // Capa de Césped Superior
+            const grassGeo = new THREE.BoxGeometry(1.2, 0.3, 1.24);
+            const grass = new THREE.Mesh(grassGeo, matGrass);
+            grass.position.set(x, -3.85, 0);
+            scene.add(grass);
+
+            platforms.push({ x: x, y: -4, w: 1.2, h: 2 });
+        }
+
+        // Tubería Verde HD
+        function createPipe(x, height) {
+            const group = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, height, 32), matPipe);
+            body.position.y = height / 2;
+            body.castShadow = true; body.receiveShadow = true;
+            group.add(body);
+
+            const top = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.05, 0.6, 32), matPipe);
+            top.position.y = height;
+            top.castShadow = true; top.receiveShadow = true;
+            group.add(top);
+
+            group.position.set(x, -4, 0);
+            scene.add(group);
+            platforms.push({ x: x, y: -4 + height / 2, w: 1.8, h: height });
+        }
+        createPipe(2, 2.5);
+        createPipe(14, 3.5);
+
+        // Plataformas Rosas y Bloques Especiales
+        function createBlock(x, y, mat, type = 'brick') {
+            const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat);
+            mesh.position.set(x, y, 0);
+            mesh.castShadow = true; mesh.receiveShadow = true;
+            scene.add(mesh);
+            platforms.push({ x: x, y: y, w: 1, h: 1, mesh: mesh, type: type });
+            return mesh;
+        }
+
+        // Estructuras del Nivel
+        createBlock(-4, 0, matPinkPlatform, 'pink');
+        createBlock(-3, 0, matPinkPlatform, 'pink');
+        createBlock(-2, 0, matPinkPlatform, 'pink');
+        createBlock(-3, 3, matQuestion, 'question');
+
+        createBlock(6, 1, matPinkPlatform, 'pink');
+        createBlock(7, 1, matPinkPlatform, 'pink');
+        createBlock(8, 4, matQuestion, 'question');
+        createBlock(9, 1, matPinkPlatform, 'pink');
+
+        // Monedas 3D Giratorias
+        for (let i = 0; i < 6; i++) {
+            const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.08, 24), matCoin);
+            coin.rotation.x = Math.PI / 2;
+            coin.position.set(5 + i * 1.5, 2.5, 0);
+            coin.castShadow = true;
+            scene.add(coin);
+            coinsList.push({ mesh: coin, collected: false, x: 5 + i * 1.5, y: 2.5 });
+        }
+
+        // Flor Rosa de Poder (Item)
+        const flowerGroup = new THREE.Group();
+        const flowerCore = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16), matPinkPlatform);
+        flowerGroup.add(flowerCore);
+        flowerGroup.position.set(-3, 4.2, 0);
+        scene.add(flowerGroup);
+
+        // Enemy (Goomba 3D)
+        function createEnemy(x, y) {
+            const enemyMat = new THREE.MeshStandardMaterial({ color: 0x8b2500, roughness: 0.8 });
+            const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 16), enemyMat);
+            mesh.position.set(x, y, 0);
+            mesh.castShadow = true;
+            scene.add(mesh);
+            enemiesList.push({ mesh: mesh, x: x, y: y, dir: 1, alive: true });
+        }
+        createEnemy(8, -3.5);
+
+        // --- MODELO 3D DE MARIO ---
+        const mario = new THREE.Group();
+        
+        // Cuerpo
+        const body = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 16), matMarioBlue);
+        body.position.y = 0.45; body.castShadow = true; mario.add(body);
+
+        // Cabeza
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.38, 16, 16), matSkin);
+        head.position.y = 1.0; head.castShadow = true; mario.add(head);
+
+        // Gorra Roja
+        const cap = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16), matMarioRed);
+        cap.scale.set(1.05, 0.6, 1.05); cap.position.y = 1.2; mario.add(cap);
+        const visor = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.06, 0.3), matMarioRed);
+        visor.position.set(0, 1.15, 0.25); mario.add(visor);
+
+        mario.position.set(-6, -3, 0);
+        scene.add(mario);
+
+        // Aura Rosa (Transformación)
+        const auraGeo = new THREE.SphereGeometry(0.9, 16, 16);
+        const auraMat = new THREE.MeshBasicMaterial({ color: 0xff69b4, transparent: true, opacity: 0.0, wireframe: true });
+        const marioAura = new THREE.Mesh(auraGeo, auraMat);
+        marioAura.position.y = 0.7;
+        mario.add(marioAura);
+
+        // --- FÍSICAS Y CONTROLES ---
+        let vx = 0, vy = 0;
+        let isGrounded = false;
+        let hasPower = false;
+        let score = 0, coins = 0;
+        const keys = {};
+
+        window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+        // --- BUCLE DE JUEGO A 60 FPS ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            const time = clock.getElapsedTime();
+
+            // Animación de Objetos
+            coinsList.forEach(c => {
+                if (!c.collected) c.mesh.rotation.z = time * 4;
+            });
+            flowerGroup.rotation.y = time * 3;
+            flowerGroup.position.y = 4.2 + Math.sin(time * 4) * 0.15;
+
+            // Enemigos
+            enemiesList.forEach(e => {
+                if (e.alive) {
+                    e.x += e.dir * 0.03;
+                    if (e.x > 12 || e.x < 5) e.dir *= -1;
+                    e.mesh.position.x = e.x;
+
+                    // Colisión Mario con Enemigo
+                    if (Math.abs(mario.position.x - e.x) < 0.7 && Math.abs(mario.position.y - e.y) < 0.7) {
+                        if (vy < 0) { // Salto sobre el enemigo
+                            e.alive = false;
+                            e.mesh.scale.set(1, 0.2, 1);
+                            vy = 0.2;
+                            score += 400;
+                            document.getElementById('score').innerText = String(score).padStart(6, '0');
+                        } else if (!hasPower) {
+                            // Derrota
+                            document.getElementById('game-over-screen').style.display = 'flex';
+                        }
                     }
                 }
+            });
+
+            // Movimiento Jugador
+            const speed = keys['x'] ? 0.14 : 0.09;
+
+            if (keys['arrowleft']) {
+                vx = -speed;
+                mario.rotation.y = -Math.PI / 2;
+            } else if (keys['arrowright']) {
+                vx = speed;
+                mario.rotation.y = Math.PI / 2;
+            } else {
+                vx *= 0.8;
             }
 
-            // Dibujar a Mario
-            drawMario(mario.x, mario.y, mario.facing, mario.hasPinkPower);
-        }
-
-        // Función para renderizar el Sprite de Mario
-        function drawMario(x, y, facing, isPink) {
-            ctx.save();
-            
-            // Aura de poder rosa si recolectó la flor
-            if (isPink) {
-                ctx.shadowColor = "#ff007f";
-                ctx.shadowBlur = 15;
+            if ((keys['z'] || keys[' ']) && isGrounded) {
+                vy = 0.24;
+                isGrounded = false;
+                playSound('jump');
             }
 
-            // Sombrero Rojo / Rosa
-            ctx.fillStyle = isPink ? "#ff1493" : "#ff0000";
-            ctx.fillRect(x + 4, y, 24, 8);
+            // Gravedad
+            vy -= 0.012;
 
-            // Cara / Piel
-            ctx.fillStyle = "#ffcca0";
-            ctx.fillRect(x + 6, y + 8, 20, 10);
+            mario.position.x += vx;
+            mario.position.y += vy;
 
-            // Bigote y ojos
-            ctx.fillStyle = "#000";
-            ctx.fillRect(facing === 'right' ? x + 18 : x + 6, y + 12, 8, 4);
+            // Cámara sigue a Mario
+            camera.position.x = THREE.MathUtils.lerp(camera.position.x, mario.position.x + 2, 0.05);
 
-            // Camisa
-            ctx.fillStyle = isPink ? "#ffb6c1" : "#ff0000";
-            ctx.fillRect(x + 4, y + 18, 24, 12);
+            // Colisiones con Plataformas
+            isGrounded = false;
+            platforms.forEach(p => {
+                if (Math.abs(mario.position.x - p.x) < (p.w / 2 + 0.3) &&
+                    mario.position.y >= p.y + p.h / 2 - 0.2 &&
+                    mario.position.y <= p.y + p.h / 2 + 0.5 && vy <= 0) {
+                    
+                    vy = 0;
+                    mario.position.y = p.y + p.h / 2;
+                    isGrounded = true;
 
-            // Overol Azul / Rosa
-            ctx.fillStyle = isPink ? "#c71585" : "#0000ff";
-            ctx.fillRect(x + 6, y + 26, 20, 14);
+                    // Poder Rosa al tocar plataforma rosa
+                    if (p.type === 'pink' && !hasPower) {
+                        hasPower = true;
+                        marioAura.material.opacity = 0.4;
+                        document.getElementById('power-status').innerText = "SUPER ROSA";
+                        playSound('powerup');
+                    }
+                }
+            });
 
-            // Botones amarillos
-            ctx.fillStyle = "#ffff00";
-            ctx.fillRect(x + 8, y + 30, 4, 4);
-            ctx.fillRect(x + 20, y + 30, 4, 4);
+            // Recoger Monedas
+            coinsList.forEach(c => {
+                if (!c.collected && Math.abs(mario.position.x - c.x) < 0.6 && Math.abs(mario.position.y - c.y) < 0.8) {
+                    c.collected = true;
+                    c.mesh.visible = false;
+                    coins++;
+                    score += 200;
+                    playSound('coin');
+                    document.getElementById('coins').innerText = String(coins).padStart(2, '0');
+                    document.getElementById('score').innerText = String(score).padStart(6, '0');
+                }
+            });
 
-            // Zapatos
-            ctx.fillStyle = "#8b4513";
-            ctx.fillRect(x + 2, y + 40, 12, 8);
-            ctx.fillRect(x + 18, y + 40, 12, 8);
+            // Animación de Aura de Poder
+            if (hasPower) {
+                marioAura.rotation.y += 0.05;
+            }
 
-            ctx.restore();
+            // Caída de mapa
+            if (mario.position.y < -8) {
+                mario.position.set(-6, -3, 0);
+                vy = 0;
+            }
+
+            renderer.render(scene, camera);
         }
 
-        // Función auxiliar para nubes
-        function drawCloud(x, y) {
-            ctx.fillStyle = "#ffffff";
-            ctx.beginPath();
-            ctx.arc(x, y, 15, 0, Math.PI * 2);
-            ctx.arc(x + 15, y - 10, 20, 0, Math.PI * 2);
-            ctx.arc(x + 35, y, 15, 0, Math.PI * 2);
-            ctx.fill();
-        }
+        // Reiniciar
+        window.addEventListener('keydown', e => {
+            if (e.key === ' ' && document.getElementById('game-over-screen').style.display === 'flex') {
+                location.reload();
+            }
+        });
 
-        // Ciclo principal
-        function gameLoop() {
-            update();
-            draw();
-            requestAnimationFrame(gameLoop);
-        }
-
-        gameLoop();
+        animate();
     </script>
 </body>
 </html>
