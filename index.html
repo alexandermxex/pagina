@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Super Mario Bros - Engine Deluxe 10/10 Edition</title>
+    <title>Super Mario Bros - Perfect Pixel Edition</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
         body {
-            background: #050508;
+            background: #09090e;
             color: #fff;
             font-family: 'Courier New', Courier, monospace;
             display: flex;
@@ -15,14 +15,13 @@
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            overflow: hidden;
         }
         #game-container {
             position: relative;
-            box-shadow: 0 0 50px rgba(92, 148, 252, 0.4), 0 20px 50px rgba(0,0,0,0.9);
-            border-radius: 12px;
+            box-shadow: 0 0 50px rgba(92, 148, 252, 0.3);
+            border-radius: 8px;
             overflow: hidden;
-            border: 4px solid #222;
+            border: 4px solid #1a1a24;
             background: #5c94fc;
         }
         canvas { display: block; image-rendering: pixelated; }
@@ -34,16 +33,15 @@
             text-shadow: 2px 2px 0px #000;
             pointer-events: none; z-index: 10;
         }
-        .hud div { text-align: center; }
         .hud span { color: #f8b800; display: block; margin-top: 2px; }
         .controls {
             margin-top: 12px;
             background: #12121c;
-            padding: 10px 24px;
-            border-radius: 8px;
-            border: 1px solid #333;
+            padding: 8px 20px;
+            border-radius: 6px;
             font-size: 13px;
-            display: flex; gap: 20px;
+            display: flex; gap: 16px;
+            border: 1px solid #222;
         }
         .key { color: #f8b800; font-weight: bold; background: #222; padding: 2px 6px; border-radius: 4px; }
     </style>
@@ -57,7 +55,8 @@
             <div>MUNDO<br><span>1-1</span></div>
             <div>TIEMPO<br><span id="ui-time">400</span></div>
         </div>
-        <canvas id="gameCanvas" width="800" height="448"></canvas>
+        <!-- Canvas ajustado a 480px (15 filas exactas de 32px) -->
+        <canvas id="gameCanvas" width="800" height="480"></canvas>
     </div>
 
     <div class="controls">
@@ -68,7 +67,7 @@
 
     <script>
         // =========================================================================
-        // 1. MOTOR DE AUDIO AVANZADO (WEB AUDIO API SINTETIZADO)
+        // SINTETIZADOR DE AUDIO
         // =========================================================================
         class AudioEngine {
             constructor() { this.ctx = null; }
@@ -87,57 +86,44 @@
                 if (type === 'jump') {
                     osc.type = 'square';
                     osc.frequency.setValueAtTime(150, now);
-                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.15);
-                    gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
-                    osc.start(now); osc.stop(now + 0.15);
-                } else if (type === 'superjump') {
-                    osc.type = 'square';
-                    osc.frequency.setValueAtTime(180, now);
-                    osc.frequency.exponentialRampToValueAtTime(750, now + 0.18);
-                    gain.gain.setValueAtTime(0.12, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.18);
-                    osc.start(now); osc.stop(now + 0.18);
+                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.12);
+                    gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+                    osc.start(now); osc.stop(now + 0.12);
                 } else if (type === 'coin') {
                     osc.type = 'sine';
                     osc.frequency.setValueAtTime(987, now);
                     osc.frequency.setValueAtTime(1318, now + 0.08);
-                    gain.gain.setValueAtTime(0.15, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
-                    osc.start(now); osc.stop(now + 0.25);
+                    gain.gain.setValueAtTime(0.12, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now); osc.stop(now + 0.2);
                 } else if (type === 'stomp') {
                     osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(220, now);
-                    osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
-                    gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
-                    osc.start(now); osc.stop(now + 0.1);
+                    osc.frequency.setValueAtTime(200, now);
+                    osc.frequency.exponentialRampToValueAtTime(40, now + 0.08);
+                    gain.gain.setValueAtTime(0.15, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+                    osc.start(now); osc.stop(now + 0.08);
                 } else if (type === 'powerup') {
                     osc.type = 'square';
-                    const notes = [330, 392, 659, 523, 587, 784];
-                    notes.forEach((f, i) => osc.frequency.setValueAtTime(f, now + i * 0.05));
-                    gain.gain.setValueAtTime(0.12, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
-                    osc.start(now); osc.stop(now + 0.3);
+                    [330, 392, 659, 523, 587, 784].forEach((f, i) => osc.frequency.setValueAtTime(f, now + i * 0.04));
+                    gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now); osc.stop(now + 0.25);
                 } else if (type === 'break') {
                     osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(160, now);
-                    osc.frequency.linearRampToValueAtTime(40, now + 0.15);
-                    gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
-                    osc.start(now); osc.stop(now + 0.15);
-                } else if (type === 'hurt') {
-                    osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(150, now);
-                    osc.frequency.linearRampToValueAtTime(60, now + 0.2);
-                    gain.gain.setValueAtTime(0.25, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
-                    osc.start(now); osc.stop(now + 0.2);
+                    osc.frequency.setValueAtTime(140, now);
+                    osc.frequency.linearRampToValueAtTime(30, now + 0.12);
+                    gain.gain.setValueAtTime(0.15, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+                    osc.start(now); osc.stop(now + 0.12);
                 }
             }
         }
         const audio = new AudioEngine();
 
         // =========================================================================
-        // 2. SPRITE FACTORY & COLOR PALETTE
+        // GENERADOR DE SPRITES FIDELIDAD NES 1:1
         // =========================================================================
         const PALETTE = {
-            R: '#e52521', B: '#00249c', S: '#fcc082', K: '#000000',
-            Y: '#f8b800', C: '#6b4400', G: '#00a800', D: '#005500',
-            W: '#ffffff', O: '#c84c0c', L: '#b84418'
+            R: '#d82800', B: '#00249c', S: '#fc9838', K: '#000000',
+            Y: '#fcbc0e', C: '#a44400', G: '#00a800', D: '#005000',
+            W: '#ffffff', O: '#d84800', L: '#b84418'
         };
 
         function buildSprite(map, scale = 2) {
@@ -157,70 +143,163 @@
             return canvas;
         }
 
+        // MARIO CHICO: 16x16 matriz -> 32x32px en pantalla
         const SmallMarioSprites = {
             idle: buildSprite([
-                "....RRRRR....", "...RRRRRRRRR.", "...KKKSSKS...", "..KSSSKSSSK..",
-                "..KSSSKKKSS..", "..KKSSSSKK...", "....SSSSSS...", "...RRBRRR....",
-                "..RRRBRRRRR..", ".RRRRBBRRRRR.", ".SSRBBYBRRSS.", ".SSBBBBBBSS.",
-                "..BBBBBBBB...", "..BBB..BBB...", ".CCC....CCC..", "CCCC....CCCC."
-            ]),
-            run1: buildSprite([
-                "....RRRRR....", "...RRRRRRRRR.", "...KKKSSKS...", "..KSSSKSSSK..",
-                "..KSSSKKKSS..", "..KKSSSSKK...", "....SSSSSS...", "..RRRBRRR....",
-                ".RRRRBBRRR...", "SSRRRBBYBRR..", "SSBBBBRRRSS..", ".BBBBBBBB....",
-                "CCCC..CCCC...", "............"
-            ]),
+                ".....RRRRR......",
+                "....RRRRRRRRR...",
+                "....KKKSSKS.....",
+                "...KSSSKSSSK....",
+                "...KSSSKKKSS....",
+                "...KKSSSSKK.....",
+                ".....SSSSSS.....",
+                "....RRRBRRR.....",
+                "...RRRRBBRRRR...",
+                "..SSRRRBBYBRRSS.",
+                "..SSBBBBBBBBSS..",
+                "...BBBBBBBBBB...",
+                "...BBB....BBB...",
+                "..CCCC....CCCC..",
+                "..CCCC....CCCC..",
+                "................"
+            ], 2),
             jump: buildSprite([
-                "....RRRRR....", "...RRRRRRRRR.", "...KKKSSKS...", "..KSSSKSSSK..",
-                "..KSSSKKKSS..", "..KKSSSSKK...", "....SSSSSS...", ".SSRRRBRRRSS.",
-                "SSRRRBBYBRRSS", ".RRRBBBBBB...", "..BBBBBBBB...", ".CCCC...CCCC."
-            ])
+                ".....RRRRR......",
+                "....RRRRRRRRR...",
+                "....KKKSSKS.....",
+                "...KSSSKSSSK....",
+                "...KSSSKKKSS....",
+                "...KKSSSSKK.....",
+                ".....SSSSSS.....",
+                "..SSRRRBRRRSS...",
+                ".SSRRRBBYBRRSS..",
+                "..RRRBBBBBB.....",
+                "...BBBBBBBB.....",
+                "..CCCC...CCCC...",
+                "..CCCC...CCCC...",
+                "................",
+                "................",
+                "................"
+            ], 2)
         };
 
+        // MARIO GRANDE FIEL: 16x32 matriz -> 32x64px en pantalla
         const BigMarioSprites = {
             idle: buildSprite([
-                "....RRRRR....", "...RRRRRRRRR.", "...KKKSSKS...", "..KSSSKSSSK..",
-                "..KSSSKKKSS..", "..KKSSSSKK...", "....SSSSSS...", "...RRBRRR....",
-                "..RRRBRRRRR..", ".RRRRBBRRRRR.", ".SSRBBYBRRSS.", ".SSBBBBBBSS.",
-                "..BBBBBBBB...", "..BBBBBBBB...", "..BBBBBBBB...", "..RRRRRRRR...",
-                ".RRRRRRRRRR..", ".RRRRRRRRRR..", ".SSRRRRRRSS..", ".SSRRRRRRSS..",
-                "..BBBBBBBB...", "..BBBBBBBB...", "..BBB..BBB...", "..BBB..BBB...",
-                ".CCC....CCC..", ".CCC....CCC..", "CCCC....CCCC.", "CCCC....CCCC."
-            ]),
+                ".....RRRRR......",
+                "....RRRRRRRRR...",
+                "....KKKSSKS.....",
+                "...KSSSKSSSK....",
+                "...KSSSKKKSS....",
+                "...KKSSSSKK.....",
+                ".....SSSSSS.....",
+                "....RRRBRRR.....",
+                "...RRRRBBRRRR...",
+                "..SSRRRBBYBRRSS.",
+                "..SSRRBBBBBBSS..",
+                "...RRBBBBBBBB...",
+                "...RRBBBBBBBB...",
+                "..RRRRRRRRRRRR..",
+                "..RRRRRRRRRRRR..",
+                ".RRRRRRRRRRRRRR.",
+                ".RRRRRRRRRRRRRR.",
+                ".RRRRRRRRRRRRRR.",
+                ".SSRRRRRRRRRRSS.",
+                ".SSRRRRRRRRRRSS.",
+                "..SSBBBBBBBBSS..",
+                "...BBBBBBBBBB...",
+                "...BBBB..BBBB...",
+                "...BBB....BBB...",
+                "..CCCC....CCCC..",
+                "..CCCC....CCCC..",
+                ".CCCC......CCCC.",
+                ".CCCC......CCCC.",
+                "................",
+                "................",
+                "................",
+                "................"
+            ], 2),
             jump: buildSprite([
-                "....RRRRR....", "...RRRRRRRRR.", "...KKKSSKS...", "..KSSSKSSSK..",
-                "..KSSSKKKSS..", "..KKSSSSKK...", "....SSSSSS...", ".SSRRRBRRRSS.",
-                "SSRRRBBYBRRSS", ".RRRBBBBBB...", "..BBBBBBBB...", "..BBBBBBBB...",
-                "..RRRRRRRR...", ".RRRRRRRRRR..", ".SSRRRRRRSS..", "..BBBBBBBB...",
-                "..BBB..BBB...", ".CCCC...CCCC.", ".CCCC...CCCC.", "............."
-            ])
+                ".....RRRRR......",
+                "....RRRRRRRRR...",
+                "....KKKSSKS.....",
+                "...KSSSKSSSK....",
+                "...KSSSKKKSS....",
+                "...KKSSSSKK.....",
+                ".....SSSSSS.....",
+                "..SSRRRBRRRSS...",
+                ".SSRRRBBYBRRSS..",
+                "..RRRBBBBBB.....",
+                "...RRBBBBBB.....",
+                "..RRRRRRRRRR....",
+                "..RRRRRRRRRR....",
+                ".RRRRRRRRRRRR...",
+                ".SSRRRRRRRRSS...",
+                "..SSBBBBBBSS....",
+                "...BBBBBBBB.....",
+                "..CCCC...CCCC...",
+                "..CCCC...CCCC...",
+                ".CCCC.....CCCC..",
+                "................",
+                "................",
+                "................",
+                "................",
+                "................",
+                "................",
+                "................",
+                "................",
+                "................",
+                "................",
+                "................",
+                "................"
+            ], 2)
         };
 
-        const GoombaSprites = {
-            walk1: buildSprite([
-                ".....CCCC....", "...CCCCCCC...", "..CCCCCCCCCC.", ".CCCCCCCCCCCC",
-                ".CCWWCCCCWWCC", ".CWWKWCCWWKWC", ".CCCCCCKCCCCC", "..CCCCKKCCCC.",
-                "...CKKKKKKC..", "..CCCCCCCCCC.", ".CCCCCCCCCCCC", "CCCC......CCCC", "CCC........CCC"
-            ]),
-            flat: buildSprite([
-                ".............", ".............", ".............", ".............",
-                ".....CCCC....", "..CCCCCCCCCC.", ".CCWWCCCCWWCC", ".CWWKWCCWWKWC",
-                "..CCCCCCCCCC.", "CCCCCCCCCCCCCC"
-            ])
-        };
+        // ENEMIGO GOOMBA: 16x16 matriz -> 32x32px
+        const GoombaSprite = buildSprite([
+            "......CCCC......",
+            "....CCCCCCC.....",
+            "...CCCCCCCCCC...",
+            "..CCCCCCCCCCCC..",
+            "..CCWWCCCCWWCC..",
+            "..CWWKWCCWWKWC..",
+            "..CCCCCCKCCCCC..",
+            "...CCCCKKCCCC...",
+            "....CKKKKKKC....",
+            "...CCCCCCCCCC...",
+            "..CCCCCCCCCCCC..",
+            ".CCCC........CCCC",
+            ".CCCC........CCCC",
+            "CCCC..........CCCC",
+            "................",
+            "................"
+        ], 2);
 
+        // CHAMPIÑÓN POWERUP: 16x16 matriz -> 32x32px
         const MushroomSprite = buildSprite([
-            ".....RRRR....", "..RRRRRRRR...", ".RRWWRRRWWR..", ".RRWWRRRWWR..",
-            "RRRRRRRRRRRR.", "RRWWRRRRRWWR.", "RRWWRRRRRWWR.", ".RRRRRRRRRR..",
-            "..SSSSSSSS...", "..SSSSSSSS...", "..SSSSSSSS...", "..SSSSSSSS..."
-        ]);
+            ".....RRRRRR.....",
+            "...RRRRRRRRRR...",
+            "..RRWWRRRRRWWR..",
+            "..RRWWRRRRRWWR..",
+            ".RRRRRRRRRRRRRR.",
+            ".RRWWRRRRRRRWWR.",
+            ".RRWWRRRRRRRWWR.",
+            "..RRRRRRRRRRRR..",
+            "...SSSSSSSSSS...",
+            "...SSSSSSSSSS...",
+            "...SSSSSSSSSS...",
+            "...SSSSSSSSSS...",
+            "....SSSSSSSS....",
+            "................",
+            "................",
+            "................"
+        ], 2);
 
         // =========================================================================
-        // 3. MAPA Y DATOS DE NIVEL COMPLETO
+        // NIVELES Y ESTRUCTURA DE 15 FILAS (32px x 15 = 480px Alto Exacto)
         // =========================================================================
         const TILE_SIZE = 32;
         const levelData = [
-            "                                                                                                                                                                                                            ",
             "                                                                                                                                                                                                            ",
             "                                                                                                                                                                                                            ",
             "                                                                                                                                                                                                            ",
@@ -238,28 +317,18 @@
             "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG   GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG"
         ];
 
-        // =========================================================================
-        // 4. ESTRUCTURAS DE FÍSICAS Y ENTIDADES (STATE MACHINE)
-        // =========================================================================
         function checkAABB(a, b) {
             return a.x < b.x + b.w && a.x + a.w > b.x &&
                    a.y < b.y + b.h && a.y + a.h > b.y;
         }
 
-        class Entity {
-            constructor(x, y, w, h) {
+        class Player {
+            constructor(x, y) {
                 this.x = x; this.y = y;
-                this.w = w; this.h = h;
+                this.w = 32; this.h = 32; // Pequeño
                 this.vx = 0; this.vy = 0;
                 this.grounded = false;
-            }
-        }
-
-        class Player extends Entity {
-            constructor(x, y) {
-                super(x, y, 26, 32);
                 this.facing = 'right';
-                this.animTimer = 0;
                 this.isBig = false;
                 this.invulnerableTimer = 0;
             }
@@ -268,7 +337,7 @@
                 if (!this.isBig) {
                     this.isBig = true;
                     this.y -= 32;
-                    this.h = 56;
+                    this.h = 64; // Grande exacto 2x
                     audio.play('powerup');
                 }
             }
@@ -277,19 +346,19 @@
                 if (this.invulnerableTimer > 0) return false;
                 if (this.isBig) {
                     this.isBig = false;
+                    this.y += 32;
                     this.h = 32;
-                    this.invulnerableTimer = 90; // Parpadeo de invulnerabilidad
-                    audio.play('hurt');
+                    this.invulnerableTimer = 90;
                     return false;
                 }
-                return true; // Muere
+                return true;
             }
 
             update(keys, blocks) {
                 if (this.invulnerableTimer > 0) this.invulnerableTimer--;
 
                 const isRun = keys['x'] || keys['shift'];
-                const accel = isRun ? 0.45 : 0.28;
+                const accel = isRun ? 0.45 : 0.3;
                 const maxSpeed = isRun ? 5.2 : 3.4;
 
                 if (keys['arrowleft']) {
@@ -300,20 +369,18 @@
                     this.facing = 'right';
                 } else {
                     this.vx *= 0.82;
-                    if (Math.abs(this.vx) < 0.05) this.vx = 0;
+                    if (Math.abs(this.vx) < 0.1) this.vx = 0;
                 }
 
-                // Salto con inercia variable
                 if ((keys['z'] || keys[' ']) && this.grounded) {
                     this.vy = this.isBig ? -12.5 : -11.0;
                     this.grounded = false;
-                    audio.play(this.isBig ? 'superjump' : 'jump');
+                    audio.play('jump');
                 }
 
-                const gravity = (keys['z'] || keys[' ']) && this.vy < 0 ? 0.38 : 0.75;
-                this.vy += gravity;
+                this.vy += 0.65;
 
-                // Resolver eje X
+                // Eje X
                 this.x += this.vx;
                 blocks.forEach(b => {
                     if (b.solid && checkAABB(this, b)) {
@@ -323,7 +390,7 @@
                     }
                 });
 
-                // Resolver eje Y
+                // Eje Y
                 this.y += this.vy;
                 this.grounded = false;
                 blocks.forEach(b => {
@@ -342,7 +409,7 @@
             }
 
             draw(ctx) {
-                if (this.invulnerableTimer % 4 >= 2) return; // Efecto parpadeo
+                if (this.invulnerableTimer % 4 >= 2) return;
 
                 ctx.save();
                 ctx.translate(Math.floor(this.x), Math.floor(this.y));
@@ -353,24 +420,19 @@
                 }
 
                 const spriteSet = this.isBig ? BigMarioSprites : SmallMarioSprites;
-                let sprite = spriteSet.idle;
-
-                if (!this.grounded) {
-                    sprite = spriteSet.jump;
-                } else if (Math.abs(this.vx) > 0.3) {
-                    this.animTimer += 0.15;
-                    sprite = Math.floor(this.animTimer) % 2 === 0 ? (spriteSet.run1 || spriteSet.idle) : spriteSet.idle;
-                }
-
+                const sprite = !this.grounded ? spriteSet.jump : spriteSet.idle;
+                
+                // Dibujo 1:1 respetando proporciones pixel-perfect
                 ctx.drawImage(sprite, 0, 0, this.w, this.h);
                 ctx.restore();
             }
         }
 
-        class Mushroom extends Entity {
+        class Mushroom {
             constructor(x, y) {
-                super(x, y, 26, 26);
-                this.vx = 1.5;
+                this.x = x; this.y = y;
+                this.w = 32; this.h = 32;
+                this.vx = 1.5; this.vy = 0;
                 this.active = true;
             }
             update(blocks) {
@@ -397,32 +459,24 @@
                 });
             }
             draw(ctx) {
-                if (!this.active) return;
-                ctx.drawImage(MushroomSprite, Math.floor(this.x), Math.floor(this.y), this.w, this.h);
+                if (this.active) ctx.drawImage(MushroomSprite, Math.floor(this.x), Math.floor(this.y), this.w, this.h);
             }
         }
 
-        class Goomba extends Entity {
+        class Goomba {
             constructor(x, y) {
-                super(x, y, 28, 28);
-                this.vx = -1.1;
+                this.x = x; this.y = y;
+                this.w = 32; this.h = 32;
+                this.vx = -1.0; this.vy = 0;
                 this.alive = true;
-                this.flatTimer = 0;
             }
-
             update(blocks) {
-                if (!this.alive) {
-                    this.flatTimer++;
-                    return;
-                }
-
-                this.vy += 0.6;
+                if (!this.alive) return;
+                this.vy += 0.5;
                 this.x += this.vx;
 
                 blocks.forEach(b => {
-                    if (b.solid && checkAABB(this, b)) {
-                        this.vx *= -1;
-                    }
+                    if (b.solid && checkAABB(this, b)) this.vx *= -1;
                 });
 
                 this.y += this.vy;
@@ -435,20 +489,11 @@
                     }
                 });
             }
-
             draw(ctx) {
-                if (!this.alive && this.flatTimer > 35) return;
-                ctx.save();
-                ctx.translate(Math.floor(this.x), Math.floor(this.y));
-                const sprite = this.alive ? GoombaSprites.walk1 : GoombaSprites.flat;
-                ctx.drawImage(sprite, 0, 0, this.w, this.h);
-                ctx.restore();
+                if (this.alive) ctx.drawImage(GoombaSprite, Math.floor(this.x), Math.floor(this.y), this.w, this.h);
             }
         }
 
-        // =========================================================================
-        // 5. BLOQUES DE ESCENARIO Y PARTÍCULAS
-        // =========================================================================
         class Block {
             constructor(x, y, type) {
                 this.x = x; this.y = y;
@@ -462,22 +507,19 @@
             onHit(player) {
                 if (this.type === 'q' && this.active) {
                     this.active = false;
-                    this.bounceY = -6;
-                    if (Math.random() > 0.5 && !player.isBig) {
-                        game.mushrooms.push(new Mushroom(this.x, this.y - 28));
+                    this.bounceY = -5;
+                    if (!player.isBig) {
+                        game.mushrooms.push(new Mushroom(this.x, this.y - 32));
                         audio.play('coin');
                     } else {
                         game.score += 200; game.coins++;
                         audio.play('coin');
-                        game.particles.push(new CoinParticle(this.x + 8, this.y - 16));
                     }
                 } else if (this.type === 'brick') {
                     if (player.isBig) {
                         audio.play('break');
                         this.solid = false;
                         this.type = 'empty';
-                        game.particles.push(new DebrisParticle(this.x, this.y, -3, -6));
-                        game.particles.push(new DebrisParticle(this.x + 16, this.y, 3, -6));
                     } else {
                         this.bounceY = -4;
                         audio.play('stomp');
@@ -519,28 +561,6 @@
             }
         }
 
-        class CoinParticle {
-            constructor(x, y) { this.x = x; this.y = y; this.vy = -6; this.life = 20; }
-            update() { this.y += this.vy; this.life--; }
-            draw(ctx) {
-                if (this.life <= 0) return;
-                ctx.fillStyle = PALETTE.Y;
-                ctx.beginPath(); ctx.arc(this.x + 8, this.y, 6, 0, Math.PI * 2); ctx.fill();
-            }
-        }
-
-        class DebrisParticle {
-            constructor(x, y, vx, vy) { this.x = x; this.y = y; this.vx = vx; this.vy = vy; this.life = 40; }
-            update() { this.x += this.vx; this.y += this.vy; this.vy += 0.5; this.life--; }
-            draw(ctx) {
-                if (this.life <= 0) return;
-                ctx.fillStyle = PALETTE.L; ctx.fillRect(this.x, this.y, 8, 8);
-            }
-        }
-
-        // =========================================================================
-        // 6. MOTOR GENERAL DE JUEGO (GAME ENGINE)
-        // =========================================================================
         class Engine {
             constructor() {
                 this.canvas = document.getElementById('gameCanvas');
@@ -550,8 +570,6 @@
                 this.coins = 0;
                 this.time = 400;
                 this.cameraX = 0;
-                this.particles = [];
-                this.mushrooms = [];
 
                 this.initWorld();
 
@@ -568,7 +586,7 @@
             }
 
             initWorld() {
-                this.player = new Player(80, 300);
+                this.player = new Player(80, 200);
                 this.blocks = [];
                 this.enemies = [];
                 this.mushrooms = [];
@@ -584,17 +602,14 @@
                     }
                 }
 
-                this.enemies.push(new Goomba(700, 380));
-                this.enemies.push(new Goomba(1100, 380));
-                this.enemies.push(new Goomba(1450, 380));
-                this.enemies.push(new Goomba(1900, 380));
-                this.enemies.push(new Goomba(2400, 380));
+                this.enemies.push(new Goomba(600, 300));
+                this.enemies.push(new Goomba(1000, 300));
+                this.enemies.push(new Goomba(1400, 300));
             }
 
             update() {
                 this.player.update(this.keys, this.blocks);
 
-                // Champiñones
                 this.mushrooms.forEach(m => {
                     m.update(this.blocks);
                     if (m.active && checkAABB(this.player, m)) {
@@ -604,41 +619,28 @@
                     }
                 });
 
-                // Enemigos
                 this.enemies.forEach(e => {
                     e.update(this.blocks);
                     if (e.alive && checkAABB(this.player, e)) {
                         if (this.player.vy > 0 && (this.player.y + this.player.h - this.player.vy) <= e.y + 16) {
                             e.alive = false;
-                            this.player.vy = -8.5;
+                            this.player.vy = -8.0;
                             this.score += 100;
                             audio.play('stomp');
                         } else {
-                            if (this.player.takeDamage()) {
-                                this.initWorld();
-                            }
+                            if (this.player.takeDamage()) this.initWorld();
                         }
                     }
                 });
 
-                // Partículas
-                this.particles.forEach((p, i) => {
-                    p.update();
-                    if (p.life <= 0) this.particles.splice(i, 1);
-                });
-
-                // HUD
                 document.getElementById('ui-score').innerText = String(this.score).padStart(6, '0');
                 document.getElementById('ui-coins').innerText = `🪙 x${String(this.coins).padStart(2, '0')}`;
 
-                // Cámara
                 if (this.player.x - this.cameraX > this.canvas.width / 2.5) {
                     this.cameraX = this.player.x - this.canvas.width / 2.5;
                 }
 
-                if (this.player.y > this.canvas.height + 60) {
-                    this.initWorld();
-                }
+                if (this.player.y > this.canvas.height + 60) this.initWorld();
             }
 
             render() {
@@ -649,7 +651,6 @@
 
                 this.blocks.forEach(b => b.draw(this.ctx));
                 this.mushrooms.forEach(m => m.draw(this.ctx));
-                this.particles.forEach(p => p.draw(this.ctx));
                 this.enemies.forEach(e => e.draw(this.ctx));
                 this.player.draw(this.ctx);
 
