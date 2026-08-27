@@ -3,9 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Super Mario Bros NES</title>
+    <title>Super Mario Bros - JavaScript Edition</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         body {
             background-color: #000;
             color: #fff;
@@ -13,96 +17,247 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            font-family: Arial, sans-serif;
+            min-height: 100vh;
+            font-family: 'Courier New', Courier, monospace;
         }
         #game-container {
-            text-align: center;
+            position: relative;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
         }
         canvas {
-            border: 4px solid #333;
-            width: 512px;
-            height: 480px;
-            image-rendering: pixelated; /* Mantiene los píxeles nítidos de NES */
+            background-color: #5c94fc; /* Azul cielo clásico de Mario */
+            display: block;
+            image-rendering: pixelated;
         }
-        .controls {
+        .instructions {
             margin-top: 15px;
+            text-align: center;
+            color: #ccc;
             font-size: 14px;
-            color: #aaa;
+        }
+        .key {
+            background: #333;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #fff;
+            border: 1px solid #555;
         }
     </style>
 </head>
 <body>
 
     <div id="game-container">
-        <!-- Pantalla del juego -->
-        <canvas id="nes-canvas" width="256" height="240"></canvas>
-        
-        <div class="controls">
-            <p><strong>Controles:</strong> Flechas (Mover) | <strong>Z</strong> (Salto / A) | <strong>X</strong> (Correr / B) | <strong>Enter</strong> (Start) | <strong>Shift</strong> (Select)</p>
-        </div>
+        <canvas id="canvas" width="256" height="240"></canvas>
     </div>
 
-    <!-- Carga del motor de emulación idéntico a la consola NES -->
-    <script src="https://unpkg.com/jsnes/dist/jsnes.min.js"></script>
-    <script>
-        const canvas = document.getElementById('nes-canvas');
-        const ctx = canvas.getContext('2d');
-        const imageData = ctx.createImageData(256, 240);
-        const buf = new ArrayBuffer(imageData.data.length);
-        const buf8 = new Uint8ClampedArray(buf);
-        const buf32 = new Uint32Array(buf);
+    <div class="instructions">
+        <p><strong>MOVER:</strong> <span class="key">←</span> <span class="key">→</span> | <strong>SALTAR:</strong> <span class="key">Z</span> o <span class="key">ESPACIO</span> | <strong>CORRER:</strong> <span class="key">X</span></p>
+    </div>
 
-        // Configurar emulador JSNES
-        const nes = new jsnes.NES({
-            onFrame: function(frameBuffer) {
-                for (let i = 0; i < frameBuffer.length; i++) {
-                    buf32[i] = 0xFF000000 | frameBuffer[i];
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Escalar canvas para mejor visibilidad manteniendo relación de aspecto NES
+        canvas.style.width = '512px';
+        canvas.style.height = '480px';
+
+        // Configuración de juego
+        const GRAVITY = 0.4;
+        let cameraX = 0;
+
+        // Estado del teclado
+        const keys = { right: false, left: false, up: false };
+
+        window.addEventListener('keydown', e => {
+            if (e.key === 'ArrowRight' || e.key === 'd') keys.right = true;
+            if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = true;
+            if (e.key === 'z' || e.key === 'Z' || e.key === ' ' || e.key === 'ArrowUp') {
+                if (!keys.up && mario.grounded) {
+                    mario.vy = -mario.jumpForce;
+                    mario.grounded = false;
                 }
-                imageData.data.set(buf8);
-                ctx.putImageData(imageData, 0, 0);
+                keys.up = true;
             }
         });
 
-        // Controles de teclado
-        const keyboardMap = {
-            38: jsnes.Controller.BUTTON_UP,
-            40: jsnes.Controller.BUTTON_DOWN,
-            37: jsnes.Controller.BUTTON_LEFT,
-            39: jsnes.Controller.BUTTON_RIGHT,
-            90: jsnes.Controller.BUTTON_A,      // Z
-            88: jsnes.Controller.BUTTON_B,      // X
-            16: jsnes.Controller.BUTTON_SELECT, // Shift
-            13: jsnes.Controller.BUTTON_START   // Enter
+        window.addEventListener('keyup', e => {
+            if (e.key === 'ArrowRight' || e.key === 'd') keys.right = false;
+            if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = false;
+            if (e.key === 'z' || e.key === 'Z' || e.key === ' ' || e.key === 'ArrowUp') keys.up = false;
+        });
+
+        // Objeto Jugador (Mario)
+        const mario = {
+            x: 50,
+            y: 100,
+            width: 12,
+            height: 16,
+            vx: 0,
+            vy: 0,
+            speed: 2,
+            jumpForce: 7.5,
+            grounded: false,
+            facing: 'right',
+
+            update() {
+                if (keys.right) {
+                    this.vx = this.speed;
+                    this.facing = 'right';
+                } else if (keys.left) {
+                    this.vx = -this.speed;
+                    this.facing = 'left';
+                } else {
+                    this.vx = 0;
+                }
+
+                this.vy += GRAVITY;
+                this.x += this.vx;
+                
+                // Colisión Horizontal con bloques
+                this.checkCollisions(this.vx, 0);
+                
+                this.y += this.vy;
+                this.grounded = false;
+                
+                // Colisión Vertical con bloques/suelo
+                this.checkCollisions(0, this.vy);
+
+                // Avance de cámara (no se puede retroceder)
+                if (this.x - cameraX > 120) {
+                    cameraX = this.x - 120;
+                }
+
+                // Caída al vacío
+                if (this.y > 240) {
+                    this.reset();
+                }
+            },
+
+            reset() {
+                this.x = 50;
+                this.y = 100;
+                this.vx = 0;
+                this.vy = 0;
+                cameraX = 0;
+            },
+
+            checkCollisions(vx, vy) {
+                blocks.forEach(b => {
+                    if (this.x < b.x + b.w &&
+                        this.x + this.width > b.x &&
+                        this.y < b.y + b.h &&
+                        this.y + this.height > b.y) {
+                        
+                        if (vx > 0) this.x = b.x - this.width;
+                        if (vx < 0) this.x = b.x + b.w;
+                        
+                        if (vy > 0) {
+                            this.y = b.y - this.height;
+                            this.vy = 0;
+                            this.grounded = true;
+                        }
+                        if (vy < 0) {
+                            this.y = b.y + b.h;
+                            this.vy = 0;
+                        }
+                    }
+                });
+            },
+
+            draw() {
+                // Renderizado vectorial estilo sprite NES clásico
+                ctx.fillStyle = '#b53120'; // Rojo Mario
+                ctx.fillRect(this.x - cameraX, this.y, this.width, this.height);
+                
+                // Gorra/Detalle
+                ctx.fillStyle = '#000';
+                const eyeX = this.facing === 'right' ? this.x + 8 - cameraX : this.x + 2 - cameraX;
+                ctx.fillRect(eyeX, this.y + 3, 2, 2);
+            }
         };
 
-        window.addEventListener('keydown', (e) => {
-            if (keyboardMap[e.keyCode] !== undefined) {
-                nes.buttonDown(1, keyboardMap[e.keyCode]);
-                e.preventDefault();
-            }
-        });
+        // Construcción del Mapa (Suelo, Bloques y Tuberías)
+        const blocks = [];
 
-        window.addEventListener('keyup', (e) => {
-            if (keyboardMap[e.keyCode] !== undefined) {
-                nes.buttonUp(1, keyboardMap[e.keyCode]);
-                e.preventDefault();
+        function createGround(startX, endX) {
+            for (let x = startX; x < endX; x += 16) {
+                blocks.push({ x: x, y: 208, w: 16, h: 16, type: 'ground' });
+                blocks.push({ x: x, y: 224, w: 16, h: 16, type: 'ground' });
             }
-        });
+        }
 
-        // Carga directa de la ROM original de Super Mario Bros
-        fetch('https://raw.githubusercontent.com/bfirsh/jsnes-web/master/public/roms/Super%20Mario%20Bros.%20(Japan,%20USA).nes')
-            .then(response => response.arrayBuffer())
-            .then(buffer => {
-                const binary = String.fromCharCode.apply(null, new Uint8Array(buffer));
-                nes.loadROM(binary);
-                
-                // Ejecutar a 60 FPS exactos
-                setInterval(() => {
-                    nes.frame();
-                }, 1000 / 60);
-            })
-            .catch(err => console.error("Error al cargar la ROM:", err));
+        function createPipe(x, heightBlocks) {
+            const y = 208 - (heightBlocks * 16);
+            for (let h = 0; h < heightBlocks; h++) {
+                blocks.push({ x: x, y: y + (h * 16), w: 32, h: 16, type: 'pipe' });
+            }
+        }
+
+        function createBlock(x, y, type = 'brick') {
+            blocks.push({ x: x, y: y, w: 16, h: 16, type: type });
+        }
+
+        // Generación Nivel 1-1
+        createGround(0, 1100);
+        createGround(1130, 2000); // Foso/Hoyo
+
+        // Bloques Misteriosos y Ladrillos
+        createBlock(250, 144, 'question');
+        createBlock(320, 144, 'brick');
+        createBlock(336, 144, 'question');
+        createBlock(352, 144, 'brick');
+        createBlock(368, 144, 'question');
+        createBlock(384, 144, 'brick');
+        createBlock(352, 80, 'question');
+
+        // Tuberías
+        createPipe(450, 2);
+        createPipe(600, 3);
+        createPipe(750, 4);
+
+        // Renderizado del Mapa
+        function drawBlocks() {
+            blocks.forEach(b => {
+                if (b.x + b.w > cameraX && b.x < cameraX + 256) {
+                    if (b.type === 'ground') {
+                        ctx.fillStyle = '#c84c0c';
+                        ctx.fillRect(b.x - cameraX, b.y, b.w, b.h);
+                        ctx.fillStyle = '#000';
+                        ctx.strokeRect(b.x - cameraX, b.y, b.w, b.h);
+                    } else if (b.type === 'brick') {
+                        ctx.fillStyle = '#b53120';
+                        ctx.fillRect(b.x - cameraX, b.y, b.w, b.h);
+                        ctx.fillStyle = '#000';
+                        ctx.strokeRect(b.x - cameraX, b.y, b.w, b.h);
+                    } else if (b.type === 'question') {
+                        ctx.fillStyle = '#fcb42c';
+                        ctx.fillRect(b.x - cameraX, b.y, b.w, b.h);
+                        ctx.fillStyle = '#000';
+                        ctx.strokeRect(b.x - cameraX, b.y, b.w, b.h);
+                    } else if (b.type === 'pipe') {
+                        ctx.fillStyle = '#00a800';
+                        ctx.fillRect(b.x - cameraX, b.y, b.w, b.h);
+                        ctx.fillStyle = '#000';
+                        ctx.strokeRect(b.x - cameraX, b.y, b.w, b.h);
+                    }
+                }
+            });
+        }
+
+        // Bucle Principal de Juego (60 FPS)
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            mario.update();
+            
+            drawBlocks();
+            mario.draw();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
     </script>
 </body>
 </html>
