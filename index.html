@@ -3,257 +3,303 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Super Mario Bros - JavaScript Edition</title>
+    <title>Super Mario Bros - Edición Rosa</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
         body {
             background-color: #000;
             color: #fff;
+            font-family: Arial, sans-serif;
             display: flex;
             flex-direction: column;
-            justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            font-family: 'Courier New', Courier, monospace;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
         }
+
         #game-container {
+            border: 4px solid #fff;
+            box-shadow: 0 0 20px rgba(255, 105, 180, 0.5);
+            background-color: #5c94fc;
             position: relative;
-            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
         }
+
         canvas {
-            background-color: #5c94fc; /* Azul cielo clásico de Mario */
             display: block;
-            image-rendering: pixelated;
         }
-        .instructions {
-            margin-top: 15px;
-            text-align: center;
-            color: #ccc;
+
+        .controls-ui {
+            background-color: #000;
+            padding: 10px 20px;
+            margin-top: 10px;
+            border-radius: 8px;
             font-size: 14px;
+            letter-spacing: 1px;
+            text-align: center;
+            border: 1px solid #333;
         }
+
         .key {
-            background: #333;
-            padding: 2px 6px;
-            border-radius: 3px;
-            color: #fff;
+            background: #222;
             border: 1px solid #555;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #fff;
         }
     </style>
 </head>
 <body>
 
     <div id="game-container">
-        <canvas id="canvas" width="256" height="240"></canvas>
+        <canvas id="marioCanvas" width="600" height="500"></canvas>
     </div>
 
-    <div class="instructions">
-        <p><strong>MOVER:</strong> <span class="key">←</span> <span class="key">→</span> | <strong>SALTAR:</strong> <span class="key">Z</span> o <span class="key">ESPACIO</span> | <strong>CORRER:</strong> <span class="key">X</span></p>
+    <div class="controls-ui">
+        MOVER: <span class="key">←</span> <span class="key">→</span> | 
+        SALTAR: <span class="key">Z</span> / <span class="key">ESPACIO</span> | 
+        CORRER / PODER: <span class="key">X</span>
     </div>
 
     <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
+        const canvas = document.getElementById("marioCanvas");
+        const ctx = canvas.getContext("2d");
 
-        // Escalar canvas para mejor visibilidad manteniendo relación de aspecto NES
-        canvas.style.width = '512px';
-        canvas.style.height = '480px';
-
-        // Configuración de juego
-        const GRAVITY = 0.4;
-        let cameraX = 0;
-
-        // Estado del teclado
-        const keys = { right: false, left: false, up: false };
-
-        window.addEventListener('keydown', e => {
-            if (e.key === 'ArrowRight' || e.key === 'd') keys.right = true;
-            if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = true;
-            if (e.key === 'z' || e.key === 'Z' || e.key === ' ' || e.key === 'ArrowUp') {
-                if (!keys.up && mario.grounded) {
-                    mario.vy = -mario.jumpForce;
-                    mario.grounded = false;
-                }
-                keys.up = true;
-            }
-        });
-
-        window.addEventListener('keyup', e => {
-            if (e.key === 'ArrowRight' || e.key === 'd') keys.right = false;
-            if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = false;
-            if (e.key === 'z' || e.key === 'Z' || e.key === ' ' || e.key === 'ArrowUp') keys.up = false;
-        });
+        // Configuración del juego
+        const GRAVITY = 0.5;
+        
+        // Estado de teclas
+        const keys = {
+            left: false,
+            right: false,
+            jump: false,
+            action: false
+        };
 
         // Objeto Jugador (Mario)
         const mario = {
             x: 50,
-            y: 100,
-            width: 12,
-            height: 16,
+            y: 300,
+            width: 32,
+            height: 48,
             vx: 0,
             vy: 0,
-            speed: 2,
-            jumpForce: 7.5,
+            speed: 4,
+            jumpForce: 11,
             grounded: false,
-            facing: 'right',
-
-            update() {
-                if (keys.right) {
-                    this.vx = this.speed;
-                    this.facing = 'right';
-                } else if (keys.left) {
-                    this.vx = -this.speed;
-                    this.facing = 'left';
-                } else {
-                    this.vx = 0;
-                }
-
-                this.vy += GRAVITY;
-                this.x += this.vx;
-                
-                // Colisión Horizontal con bloques
-                this.checkCollisions(this.vx, 0);
-                
-                this.y += this.vy;
-                this.grounded = false;
-                
-                // Colisión Vertical con bloques/suelo
-                this.checkCollisions(0, this.vy);
-
-                // Avance de cámara (no se puede retroceder)
-                if (this.x - cameraX > 120) {
-                    cameraX = this.x - 120;
-                }
-
-                // Caída al vacío
-                if (this.y > 240) {
-                    this.reset();
-                }
-            },
-
-            reset() {
-                this.x = 50;
-                this.y = 100;
-                this.vx = 0;
-                this.vy = 0;
-                cameraX = 0;
-            },
-
-            checkCollisions(vx, vy) {
-                blocks.forEach(b => {
-                    if (this.x < b.x + b.w &&
-                        this.x + this.width > b.x &&
-                        this.y < b.y + b.h &&
-                        this.y + this.height > b.y) {
-                        
-                        if (vx > 0) this.x = b.x - this.width;
-                        if (vx < 0) this.x = b.x + b.w;
-                        
-                        if (vy > 0) {
-                            this.y = b.y - this.height;
-                            this.vy = 0;
-                            this.grounded = true;
-                        }
-                        if (vy < 0) {
-                            this.y = b.y + b.h;
-                            this.vy = 0;
-                        }
-                    }
-                });
-            },
-
-            draw() {
-                // Renderizado vectorial estilo sprite NES clásico
-                ctx.fillStyle = '#b53120'; // Rojo Mario
-                ctx.fillRect(this.x - cameraX, this.y, this.width, this.height);
-                
-                // Gorra/Detalle
-                ctx.fillStyle = '#000';
-                const eyeX = this.facing === 'right' ? this.x + 8 - cameraX : this.x + 2 - cameraX;
-                ctx.fillRect(eyeX, this.y + 3, 2, 2);
-            }
+            hasPinkPower: false,
+            facing: 'right'
         };
 
-        // Construcción del Mapa (Suelo, Bloques y Tuberías)
-        const blocks = [];
+        // Elementos del nivel (Plataformas y Bloques)
+        const platforms = [
+            // Suelo de ladrillo
+            { x: 0, y: 440, width: 600, height: 60, type: 'ground' },
+            // Plataforma izquierda con bloque ?
+            { x: 50, y: 300, width: 120, height: 30, type: 'brick' },
+            { x: 90, y: 180, width: 30, height: 30, type: 'question' },
+            // Tubería verde central
+            { x: 270, y: 370, width: 50, height: 70, type: 'pipe' },
+            // Plataformas superiores (Rosa y Ladrillo)
+            { x: 380, y: 260, width: 150, height: 30, type: 'brick' },
+            { x: 420, y: 260, width: 30, height: 30, type: 'question' },
+            { x: 410, y: 350, width: 120, height: 20, type: 'pink_brick' }
+        ];
 
-        function createGround(startX, endX) {
-            for (let x = startX; x < endX; x += 16) {
-                blocks.push({ x: x, y: 208, w: 16, h: 16, type: 'ground' });
-                blocks.push({ x: x, y: 224, w: 16, h: 16, type: 'ground' });
+        // Items especiales (Poderes Rosas)
+        const items = [
+            { x: 425, y: 130, size: 24, type: 'pink_flower', collected: false },
+            { x: 100, y: 90, size: 24, type: 'pink_star', collected: false }
+        ];
+
+        // Control de teclado
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') keys.left = true;
+            if (e.key === 'ArrowRight') keys.right = true;
+            if (e.key === 'z' || e.key === 'Z' || e.key === ' ') keys.jump = true;
+            if (e.key === 'x' || e.key === 'X') keys.action = true;
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft') keys.left = false;
+            if (e.key === 'ArrowRight') keys.right = false;
+            if (e.key === 'z' || e.key === 'Z' || e.key === ' ') keys.jump = false;
+            if (e.key === 'x' || e.key === 'X') keys.action = false;
+        });
+
+        // Bucle de actualización lógica
+        function update() {
+            // Movimiento horizontal
+            if (keys.left) {
+                mario.vx = -mario.speed;
+                mario.facing = 'left';
+            } else if (keys.right) {
+                mario.vx = mario.speed;
+                mario.facing = 'right';
+            } else {
+                mario.vx = 0;
+            }
+
+            // Salto
+            if (keys.jump && mario.grounded) {
+                mario.vy = -mario.jumpForce;
+                mario.grounded = false;
+            }
+
+            // Aplicar gravedad
+            mario.vy += GRAVITY;
+
+            // Actualizar posiciones
+            mario.x += mario.vx;
+            mario.y += mario.vy;
+
+            // Colisiones con paredes
+            if (mario.x < 0) mario.x = 0;
+            if (mario.x + mario.width > canvas.width) mario.x = canvas.width - mario.width;
+
+            // Colisiones con plataformas
+            mario.grounded = false;
+            for (let plat of platforms) {
+                if (
+                    mario.x < plat.x + plat.width &&
+                    mario.x + mario.width > plat.x &&
+                    mario.y + mario.height >= plat.y &&
+                    mario.y + mario.height <= plat.y + plat.height &&
+                    mario.vy >= 0
+                ) {
+                    mario.grounded = true;
+                    mario.vy = 0;
+                    mario.y = plat.y - mario.height;
+                }
+            }
+
+            // Recoger Poderes Rosas
+            for (let item of items) {
+                if (!item.collected &&
+                    mario.x < item.x + item.size &&
+                    mario.x + mario.width > item.x &&
+                    mario.y < item.y + item.size &&
+                    mario.y + mario.height > item.y) {
+                    
+                    item.collected = true;
+                    mario.hasPinkPower = true;
+                }
             }
         }
 
-        function createPipe(x, heightBlocks) {
-            const y = 208 - (heightBlocks * 16);
-            for (let h = 0; h < heightBlocks; h++) {
-                blocks.push({ x: x, y: y + (h * 16), w: 32, h: 16, type: 'pipe' });
+        // Renderizado gráfico
+        function draw() {
+            // Fondo de cielo
+            ctx.fillStyle = "#5c94fc";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Dibuja nubes decorativas
+            drawCloud(100, 80);
+            drawCloud(400, 60);
+
+            // Dibujar plataformas y bloques
+            for (let plat of platforms) {
+                if (plat.type === 'ground' || plat.type === 'brick') {
+                    ctx.fillStyle = "#d84800"; // Ladrillo rojo/marrón clásico
+                    ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+                    ctx.strokeStyle = "#000";
+                    ctx.strokeRect(plat.x, plat.y, plat.width, plat.height);
+                } else if (plat.type === 'question') {
+                    ctx.fillStyle = "#fc9838"; // Bloque ? amarillo/naranja
+                    ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+                    ctx.fillStyle = "#000";
+                    ctx.font = "bold 20px Arial";
+                    ctx.fillText("?", plat.x + 8, plat.y + 22);
+                } else if (plat.type === 'pipe') {
+                    ctx.fillStyle = "#00a800"; // Tubería verde
+                    ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+                    ctx.fillStyle = "#008800";
+                    ctx.fillRect(plat.x - 4, plat.y, plat.width + 8, 15);
+                } else if (plat.type === 'pink_brick') {
+                    ctx.fillStyle = "#ff69b4"; // Ladrillo rosa
+                    ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+                }
             }
-        }
 
-        function createBlock(x, y, type = 'brick') {
-            blocks.push({ x: x, y: y, w: 16, h: 16, type: type });
-        }
-
-        // Generación Nivel 1-1
-        createGround(0, 1100);
-        createGround(1130, 2000); // Foso/Hoyo
-
-        // Bloques Misteriosos y Ladrillos
-        createBlock(250, 144, 'question');
-        createBlock(320, 144, 'brick');
-        createBlock(336, 144, 'question');
-        createBlock(352, 144, 'brick');
-        createBlock(368, 144, 'question');
-        createBlock(384, 144, 'brick');
-        createBlock(352, 80, 'question');
-
-        // Tuberías
-        createPipe(450, 2);
-        createPipe(600, 3);
-        createPipe(750, 4);
-
-        // Renderizado del Mapa
-        function drawBlocks() {
-            blocks.forEach(b => {
-                if (b.x + b.w > cameraX && b.x < cameraX + 256) {
-                    if (b.type === 'ground') {
-                        ctx.fillStyle = '#c84c0c';
-                        ctx.fillRect(b.x - cameraX, b.y, b.w, b.h);
-                        ctx.fillStyle = '#000';
-                        ctx.strokeRect(b.x - cameraX, b.y, b.w, b.h);
-                    } else if (b.type === 'brick') {
-                        ctx.fillStyle = '#b53120';
-                        ctx.fillRect(b.x - cameraX, b.y, b.w, b.h);
-                        ctx.fillStyle = '#000';
-                        ctx.strokeRect(b.x - cameraX, b.y, b.w, b.h);
-                    } else if (b.type === 'question') {
-                        ctx.fillStyle = '#fcb42c';
-                        ctx.fillRect(b.x - cameraX, b.y, b.w, b.h);
-                        ctx.fillStyle = '#000';
-                        ctx.strokeRect(b.x - cameraX, b.y, b.w, b.h);
-                    } else if (b.type === 'pipe') {
-                        ctx.fillStyle = '#00a800';
-                        ctx.fillRect(b.x - cameraX, b.y, b.w, b.h);
-                        ctx.fillStyle = '#000';
-                        ctx.strokeRect(b.x - cameraX, b.y, b.w, b.h);
+            // Dibujar Items (Flor Rosa / Estrella Rosa)
+            for (let item of items) {
+                if (!item.collected) {
+                    if (item.type === 'pink_flower') {
+                        ctx.fillStyle = "#ff1493";
+                        ctx.beginPath();
+                        ctx.arc(item.x + 12, item.y + 12, 12, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.fillStyle = "#fff";
+                        ctx.beginPath();
+                        ctx.arc(item.x + 12, item.y + 12, 5, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (item.type === 'pink_star') {
+                        ctx.fillStyle = "#ffb6c1";
+                        ctx.fillRect(item.x, item.y, item.size, item.size);
                     }
                 }
-            });
+            }
+
+            // Dibujar a Mario
+            drawMario(mario.x, mario.y, mario.facing, mario.hasPinkPower);
         }
 
-        // Bucle Principal de Juego (60 FPS)
-        function gameLoop() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            mario.update();
+        // Función para renderizar el Sprite de Mario
+        function drawMario(x, y, facing, isPink) {
+            ctx.save();
             
-            drawBlocks();
-            mario.draw();
+            // Aura de poder rosa si recolectó la flor
+            if (isPink) {
+                ctx.shadowColor = "#ff007f";
+                ctx.shadowBlur = 15;
+            }
 
+            // Sombrero Rojo / Rosa
+            ctx.fillStyle = isPink ? "#ff1493" : "#ff0000";
+            ctx.fillRect(x + 4, y, 24, 8);
+
+            // Cara / Piel
+            ctx.fillStyle = "#ffcca0";
+            ctx.fillRect(x + 6, y + 8, 20, 10);
+
+            // Bigote y ojos
+            ctx.fillStyle = "#000";
+            ctx.fillRect(facing === 'right' ? x + 18 : x + 6, y + 12, 8, 4);
+
+            // Camisa
+            ctx.fillStyle = isPink ? "#ffb6c1" : "#ff0000";
+            ctx.fillRect(x + 4, y + 18, 24, 12);
+
+            // Overol Azul / Rosa
+            ctx.fillStyle = isPink ? "#c71585" : "#0000ff";
+            ctx.fillRect(x + 6, y + 26, 20, 14);
+
+            // Botones amarillos
+            ctx.fillStyle = "#ffff00";
+            ctx.fillRect(x + 8, y + 30, 4, 4);
+            ctx.fillRect(x + 20, y + 30, 4, 4);
+
+            // Zapatos
+            ctx.fillStyle = "#8b4513";
+            ctx.fillRect(x + 2, y + 40, 12, 8);
+            ctx.fillRect(x + 18, y + 40, 12, 8);
+
+            ctx.restore();
+        }
+
+        // Función auxiliar para nubes
+        function drawCloud(x, y) {
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath();
+            ctx.arc(x, y, 15, 0, Math.PI * 2);
+            ctx.arc(x + 15, y - 10, 20, 0, Math.PI * 2);
+            ctx.arc(x + 35, y, 15, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Ciclo principal
+        function gameLoop() {
+            update();
+            draw();
             requestAnimationFrame(gameLoop);
         }
 
