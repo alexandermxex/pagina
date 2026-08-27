@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Super Mario Bros - Perfect Pixel Edition</title>
+    <title>Super Mario Bros 1-1 Deluxe NES Edition</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
         body {
-            background: #09090e;
+            background: #050508;
             color: #fff;
             font-family: 'Courier New', Courier, monospace;
             display: flex;
@@ -18,7 +18,7 @@
         }
         #game-container {
             position: relative;
-            box-shadow: 0 0 50px rgba(92, 148, 252, 0.3);
+            box-shadow: 0 0 60px rgba(92, 148, 252, 0.4);
             border-radius: 8px;
             overflow: hidden;
             border: 4px solid #1a1a24;
@@ -55,19 +55,18 @@
             <div>MUNDO<br><span>1-1</span></div>
             <div>TIEMPO<br><span id="ui-time">400</span></div>
         </div>
-        <!-- Canvas ajustado a 480px (15 filas exactas de 32px) -->
         <canvas id="gameCanvas" width="800" height="480"></canvas>
     </div>
 
     <div class="controls">
         <div>MOVER: <span class="key">←</span> <span class="key">→</span></div>
-        <div>SALTAR: <span class="key">Z</span> / <span class="key">ESPACIO</span></div>
+        <div>SALTAR (Mantener para alto): <span class="key">Z</span> / <span class="key">ESPACIO</span></div>
         <div>CORRER: <span class="key">X</span> / <span class="key">SHIFT</span></div>
     </div>
 
     <script>
         // =========================================================================
-        // SINTETIZADOR DE AUDIO
+        // SINTETIZADOR DE SONIDO NES
         // =========================================================================
         class AudioEngine {
             constructor() { this.ctx = null; }
@@ -86,31 +85,31 @@
                 if (type === 'jump') {
                     osc.type = 'square';
                     osc.frequency.setValueAtTime(150, now);
-                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.12);
-                    gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
-                    osc.start(now); osc.stop(now + 0.12);
+                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.15);
+                    gain.gain.setValueAtTime(0.08, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now); osc.stop(now + 0.15);
                 } else if (type === 'coin') {
                     osc.type = 'sine';
                     osc.frequency.setValueAtTime(987, now);
                     osc.frequency.setValueAtTime(1318, now + 0.08);
-                    gain.gain.setValueAtTime(0.12, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                    gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
                     osc.start(now); osc.stop(now + 0.2);
                 } else if (type === 'stomp') {
                     osc.type = 'triangle';
                     osc.frequency.setValueAtTime(200, now);
                     osc.frequency.exponentialRampToValueAtTime(40, now + 0.08);
-                    gain.gain.setValueAtTime(0.15, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+                    gain.gain.setValueAtTime(0.12, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
                     osc.start(now); osc.stop(now + 0.08);
                 } else if (type === 'powerup') {
                     osc.type = 'square';
                     [330, 392, 659, 523, 587, 784].forEach((f, i) => osc.frequency.setValueAtTime(f, now + i * 0.04));
-                    gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                    gain.gain.setValueAtTime(0.08, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
                     osc.start(now); osc.stop(now + 0.25);
                 } else if (type === 'break') {
                     osc.type = 'sawtooth';
                     osc.frequency.setValueAtTime(140, now);
                     osc.frequency.linearRampToValueAtTime(30, now + 0.12);
-                    gain.gain.setValueAtTime(0.15, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+                    gain.gain.setValueAtTime(0.12, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
                     osc.start(now); osc.stop(now + 0.12);
                 }
             }
@@ -118,12 +117,12 @@
         const audio = new AudioEngine();
 
         // =========================================================================
-        // GENERADOR DE SPRITES FIDELIDAD NES 1:1
+        // PALETA Y DIBUJO DE SPRITES CON PIXEL ART EXACTO
         // =========================================================================
         const PALETTE = {
             R: '#d82800', B: '#00249c', S: '#fc9838', K: '#000000',
             Y: '#fcbc0e', C: '#a44400', G: '#00a800', D: '#005000',
-            W: '#ffffff', O: '#d84800', L: '#b84418'
+            W: '#ffffff', O: '#d84800', L: '#b84418', P: '#80d010'
         };
 
         function buildSprite(map, scale = 2) {
@@ -143,7 +142,6 @@
             return canvas;
         }
 
-        // MARIO CHICO: 16x16 matriz -> 32x32px en pantalla
         const SmallMarioSprites = {
             idle: buildSprite([
                 ".....RRRRR......",
@@ -162,7 +160,25 @@
                 "..CCCC....CCCC..",
                 "..CCCC....CCCC..",
                 "................"
-            ], 2),
+            ]),
+            walk1: buildSprite([
+                ".....RRRRR......",
+                "....RRRRRRRRR...",
+                "....KKKSSKS.....",
+                "...KSSSKSSSK....",
+                "...KSSSKKKSS....",
+                "...KKSSSSKK.....",
+                ".....SSSSSS.....",
+                "....RRRBRRR.....",
+                "...RRRRBBRRRR...",
+                "..SSRRRBBYBRRSS.",
+                "..SSBBBBBBBBSS..",
+                "...BBBBBBBBBB...",
+                "....CCCC..CCCC..",
+                "....CCCC..CCCC..",
+                "................",
+                "................"
+            ]),
             jump: buildSprite([
                 ".....RRRRR......",
                 "....RRRRRRRRR...",
@@ -180,10 +196,9 @@
                 "................",
                 "................",
                 "................"
-            ], 2)
+            ])
         };
 
-        // MARIO GRANDE FIEL: 16x32 matriz -> 32x64px en pantalla
         const BigMarioSprites = {
             idle: buildSprite([
                 ".....RRRRR......",
@@ -218,7 +233,7 @@
                 "................",
                 "................",
                 "................"
-            ], 2),
+            ]),
             jump: buildSprite([
                 ".....RRRRR......",
                 "....RRRRRRRRR...",
@@ -252,11 +267,10 @@
                 "................",
                 "................",
                 "................"
-            ], 2)
+            ])
         };
 
-        // ENEMIGO GOOMBA: 16x16 matriz -> 32x32px
-        const GoombaSprite = buildSprite([
+        const GoombaSprite1 = buildSprite([
             "......CCCC......",
             "....CCCCCCC.....",
             "...CCCCCCCCCC...",
@@ -273,9 +287,27 @@
             "CCCC..........CCCC",
             "................",
             "................"
-        ], 2);
+        ]);
 
-        // CHAMPIÑÓN POWERUP: 16x16 matriz -> 32x32px
+        const GoombaSpriteFlat = buildSprite([
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            "....CKKKKKKC....",
+            "...CCCCCCCCCC...",
+            "..CCCCCCCCCCCC..",
+            ".CCCCCCCCCCCCCC.",
+            "CCCCCCCCCCCCCCCC",
+            "................",
+            "................",
+            "................"
+        ]);
+
         const MushroomSprite = buildSprite([
             ".....RRRRRR.....",
             "...RRRRRRRRRR...",
@@ -293,28 +325,28 @@
             "................",
             "................",
             "................"
-        ], 2);
+        ]);
 
         // =========================================================================
-        // NIVELES Y ESTRUCTURA DE 15 FILAS (32px x 15 = 480px Alto Exacto)
+        // NIVEL 1-1 NES COMPLETO
         // =========================================================================
         const TILE_SIZE = 32;
         const levelData = [
-            "                                                                                                                                                                                                            ",
-            "                                                                                                                                                                                                            ",
-            "                                                                                                                                                                                                            ",
-            "                                                                                                                                                                                                            ",
-            "                                                                                                                                                                                                            ",
-            "                                                                                                                                                                                                            ",
-            "                                                                                                                                                                                                            ",
-            "                 ?  B?B?B                                      B?B                                                                                                                                          ",
-            "                                                                                                                                                                                                            ",
-            "                                        P1                                                                                   B?B                                                                            ",
-            "                                P1      P2                                    P1                                            BBBBB                                                                           ",
-            "                        P1      P2      P2                                    P2                                           BBBBBBB                                F                                         ",
-            "                P1      P2      P2      P2                                    P2                                          BBBBBBBBB                               F                                         ",
-            "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG   GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
-            "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG   GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG"
+            "                                                                                                                                                                                                                                               ",
+            "                                                                                                                                                                                                                                               ",
+            "                                                                                                                                                                                                                                               ",
+            "                                                                                                                                                                                                                                               ",
+            "                                                                                                                                                                                                                                               ",
+            "                                                                                                                                                                                                                                               ",
+            "                                                                                                                                                                                                                                               ",
+            "                 ?  B?B?B                                      B?B                                                                 B?B                                         ?                                                               ",
+            "                                                                                                                                  BBBBB                                                                                                        ",
+            "                                        P1                                                                                       BBBBBBB                                                                                                       ",
+            "                                P1      P2                                    P1                                                BBBBBBBBB                                F                                                             ",
+            "                        P1      P2      P2                                    P2                                               BBBBBBBBBBB                               F                                                             ",
+            "                P1      P2      P2      P2                                    P2                                              BBBBBBBBBBBBB                              F                                                             ",
+            "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG   GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+            "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG   GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG"
         ];
 
         function checkAABB(a, b) {
@@ -325,19 +357,24 @@
         class Player {
             constructor(x, y) {
                 this.x = x; this.y = y;
-                this.w = 32; this.h = 32; // Pequeño
+                this.w = 32; this.h = 32;
                 this.vx = 0; this.vy = 0;
                 this.grounded = false;
                 this.facing = 'right';
                 this.isBig = false;
                 this.invulnerableTimer = 0;
+                this.animTimer = 0;
+
+                // FÍSICA MEJORADA ESTILO NES
+                this.coyoteTimer = 0;
+                this.jumpBuffer = 0;
             }
 
             makeBig() {
                 if (!this.isBig) {
                     this.isBig = true;
                     this.y -= 32;
-                    this.h = 64; // Grande exacto 2x
+                    this.h = 64;
                     audio.play('powerup');
                 }
             }
@@ -358,9 +395,10 @@
                 if (this.invulnerableTimer > 0) this.invulnerableTimer--;
 
                 const isRun = keys['x'] || keys['shift'];
-                const accel = isRun ? 0.45 : 0.3;
-                const maxSpeed = isRun ? 5.2 : 3.4;
+                const accel = isRun ? 0.5 : 0.35;
+                const maxSpeed = isRun ? 5.5 : 3.5;
 
+                // Movimiento horizontal
                 if (keys['arrowleft']) {
                     this.vx = Math.max(this.vx - accel, -maxSpeed);
                     this.facing = 'left';
@@ -368,19 +406,41 @@
                     this.vx = Math.min(this.vx + accel, maxSpeed);
                     this.facing = 'right';
                 } else {
-                    this.vx *= 0.82;
+                    this.vx *= 0.8;
                     if (Math.abs(this.vx) < 0.1) this.vx = 0;
                 }
 
-                if ((keys['z'] || keys[' ']) && this.grounded) {
-                    this.vy = this.isBig ? -12.5 : -11.0;
+                // Buffer de salto y coyote time
+                if (this.grounded) {
+                    this.coyoteTimer = 6;
+                } else if (this.coyoteTimer > 0) {
+                    this.coyoteTimer--;
+                }
+
+                if (keys['z'] || keys[' ']) {
+                    this.jumpBuffer = 4;
+                } else if (this.jumpBuffer > 0) {
+                    this.jumpBuffer--;
+                }
+
+                // Ejecución de Salto
+                if (this.jumpBuffer > 0 && this.coyoteTimer > 0) {
+                    this.vy = -10.5;
                     this.grounded = false;
+                    this.coyoteTimer = 0;
+                    this.jumpBuffer = 0;
                     audio.play('jump');
                 }
 
-                this.vy += 0.65;
+                // SALTO VARIABLE: Al soltar la tecla, corta la subida
+                if (!(keys['z'] || keys[' ']) && this.vy < -3) {
+                    this.vy += 0.6;
+                }
 
-                // Eje X
+                // Gravedad constante
+                this.vy += 0.55;
+
+                // Colisión X
                 this.x += this.vx;
                 blocks.forEach(b => {
                     if (b.solid && checkAABB(this, b)) {
@@ -390,7 +450,7 @@
                     }
                 });
 
-                // Eje Y
+                // Colisión Y
                 this.y += this.vy;
                 this.grounded = false;
                 blocks.forEach(b => {
@@ -406,6 +466,8 @@
                         }
                     }
                 });
+
+                this.animTimer += Math.abs(this.vx);
             }
 
             draw(ctx) {
@@ -420,9 +482,14 @@
                 }
 
                 const spriteSet = this.isBig ? BigMarioSprites : SmallMarioSprites;
-                const sprite = !this.grounded ? spriteSet.jump : spriteSet.idle;
-                
-                // Dibujo 1:1 respetando proporciones pixel-perfect
+                let sprite = spriteSet.idle;
+
+                if (!this.grounded) {
+                    sprite = spriteSet.jump;
+                } else if (Math.abs(this.vx) > 0.2) {
+                    sprite = (Math.floor(this.animTimer / 8) % 2 === 0) ? spriteSet.walk1 : spriteSet.idle;
+                }
+
                 ctx.drawImage(sprite, 0, 0, this.w, this.h);
                 ctx.restore();
             }
@@ -432,7 +499,7 @@
             constructor(x, y) {
                 this.x = x; this.y = y;
                 this.w = 32; this.h = 32;
-                this.vx = 1.5; this.vy = 0;
+                this.vx = 1.6; this.vy = 0;
                 this.active = true;
             }
             update(blocks) {
@@ -469,9 +536,13 @@
                 this.w = 32; this.h = 32;
                 this.vx = -1.0; this.vy = 0;
                 this.alive = true;
+                this.flatTimer = 0;
             }
             update(blocks) {
-                if (!this.alive) return;
+                if (!this.alive) {
+                    if (this.flatTimer > 0) this.flatTimer--;
+                    return;
+                }
                 this.vy += 0.5;
                 this.x += this.vx;
 
@@ -490,7 +561,11 @@
                 });
             }
             draw(ctx) {
-                if (this.alive) ctx.drawImage(GoombaSprite, Math.floor(this.x), Math.floor(this.y), this.w, this.h);
+                if (this.alive) {
+                    ctx.drawImage(GoombaSprite1, Math.floor(this.x), Math.floor(this.y), this.w, this.h);
+                } else if (this.flatTimer > 0) {
+                    ctx.drawImage(GoombaSpriteFlat, Math.floor(this.x), Math.floor(this.y + 16), this.w, 16);
+                }
             }
         }
 
@@ -510,11 +585,10 @@
                     this.bounceY = -5;
                     if (!player.isBig) {
                         game.mushrooms.push(new Mushroom(this.x, this.y - 32));
-                        audio.play('coin');
                     } else {
                         game.score += 200; game.coins++;
-                        audio.play('coin');
                     }
+                    audio.play('coin');
                 } else if (this.type === 'brick') {
                     if (player.isBig) {
                         audio.play('break');
@@ -602,9 +676,11 @@
                     }
                 }
 
-                this.enemies.push(new Goomba(600, 300));
-                this.enemies.push(new Goomba(1000, 300));
-                this.enemies.push(new Goomba(1400, 300));
+                // Disposición de enemigos exacta
+                this.enemies.push(new Goomba(700, 300));
+                this.enemies.push(new Goomba(1300, 300));
+                this.enemies.push(new Goomba(1750, 300));
+                this.enemies.push(new Goomba(2400, 300));
             }
 
             update() {
@@ -624,7 +700,8 @@
                     if (e.alive && checkAABB(this.player, e)) {
                         if (this.player.vy > 0 && (this.player.y + this.player.h - this.player.vy) <= e.y + 16) {
                             e.alive = false;
-                            this.player.vy = -8.0;
+                            e.flatTimer = 30;
+                            this.player.vy = -7.5;
                             this.score += 100;
                             audio.play('stomp');
                         } else {
